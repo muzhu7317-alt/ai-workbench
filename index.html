@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>电商设计师 AI 工作台</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0f172a; --card: #1e293b; --border: #334155; --text: #e2e8f0;
+  --muted: #94a3b8; --accent: #6366f1; --accent2: #8b5cf6; --green: #22c55e;
+  --amber: #f59e0b; --red: #ef4444; --radius: 12px;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh; display: flex;
+}
+/* SIDEBAR */
+.sidebar {
+  width: 220px; min-width: 220px; background: #0c1222; padding: 20px 0;
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.logo {
+  font-size: 1.1rem; font-weight: 700; padding: 0 20px 20px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 20px;
+  color: var(--muted); cursor: pointer; transition: all 0.15s; border: none;
+  background: none; width: 100%; text-align: left; font-size: 0.9rem;
+  font-family: inherit;
+}
+.nav-item:hover { color: var(--text); background: rgba(99,102,241,0.1); }
+.nav-item.active { color: var(--accent); background: rgba(99,102,241,0.15); border-right: 3px solid var(--accent); }
+.nav-icon { font-size: 1.1rem; width: 22px; text-align: center; }
+.stats-bar { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); }
+.stats-bar .val { font-size: 1.5rem; font-weight: 700; color: var(--accent2); }
+.stats-bar .lbl { font-size: 0.75rem; color: var(--muted); }
+
+/* MAIN */
+.main { flex: 1; padding: 28px 32px; overflow-y: auto; height: 100vh; }
+.page { display: none; }
+.page.active { display: block; }
+.page-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 4px; }
+.page-desc { color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+
+/* CARDS */
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; margin-bottom: 16px;
+}
+.card h3 { font-size: 0.95rem; color: #cbd5e1; margin-bottom: 12px; }
+
+/* TAGS & FILTERS */
+.tag-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.tag {
+  padding: 5px 14px; border-radius: 20px; font-size: 0.8rem; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  transition: all 0.15s; font-family: inherit;
+}
+.tag:hover { border-color: var(--accent); color: var(--text); }
+.tag.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* PROMPT CARDS */
+.prompt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.prompt-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.prompt-card .ptype { font-size: 0.7rem; color: var(--accent2); text-transform: uppercase; letter-spacing: 0.5px; }
+.prompt-card .ptitle { font-size: 0.9rem; font-weight: 600; margin: 4px 0 8px; }
+.prompt-card .ppreview {
+  font-size: 0.78rem; color: var(--muted); background: #0f172a;
+  padding: 10px; border-radius: 8px; max-height: 100px; overflow: hidden;
+  position: relative; line-height: 1.5; white-space: pre-wrap;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+}
+.prompt-card .ppreview::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 36px;
+  background: linear-gradient(transparent, #0f172a);
+}
+.prompt-card .pactions { display: flex; gap: 8px; margin-top: 10px; }
+.btn {
+  padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--text);
+  transition: all 0.15s; font-family: inherit; display: inline-flex; align-items: center; gap: 5px;
+}
+.btn:hover { border-color: var(--accent); background: rgba(99,102,241,0.1); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: #5558e6; }
+.btn-success { background: #166534; border-color: #15803d; color: #86efac; }
+.btn-success:hover { background: #1a7b3d; }
+.btn-sm { padding: 4px 10px; font-size: 0.73rem; }
+.toast {
+  position: fixed; bottom: 24px; right: 24px; padding: 10px 20px;
+  background: #166534; color: #86efac; border-radius: 10px; font-size: 0.85rem;
+  opacity: 0; transform: translateY(10px); transition: all 0.25s; z-index: 999;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* BUILDER */
+.builder-form { display: flex; flex-direction: column; gap: 14px; }
+.form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+.form-group input, .form-group select, .form-group textarea {
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: #0f172a; color: var(--text); font-size: 0.85rem; font-family: inherit;
+}
+.form-group textarea { resize: vertical; min-height: 60px; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+.result-box {
+  background: #0f172a; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; font-size: 0.85rem; line-height: 1.7; white-space: pre-wrap;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+  min-height: 120px; color: var(--text);
+}
+
+/* KANBAN */
+.kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.kanban-col {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px; min-height: 300px;
+}
+.kanban-col h4 { font-size: 0.85rem; margin-bottom: 10px; color: var(--muted); }
+.kanban-item {
+  background: #0f172a; border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; margin-bottom: 8px; cursor: grab; transition: all 0.15s;
+}
+.kanban-item:hover { border-color: var(--accent); }
+.kanban-item .ki-title { font-size: 0.85rem; font-weight: 600; }
+.kanban-item .ki-meta { font-size: 0.7rem; color: var(--muted); margin-top: 4px; display: flex; justify-content: space-between; }
+.kanban-item .ki-actions { display: flex; gap: 4px; margin-top: 6px; }
+select.ki-status { font-size: 0.7rem; padding: 3px 6px; border-radius: 6px; background: #0f172a; color: var(--text); border: 1px solid var(--border); }
+
+/* TOOLS GRID */
+.tools-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.tool-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px; transition: all 0.15s;
+}
+.tool-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.tool-card .t-icon { font-size: 1.8rem; margin-bottom: 8px; }
+.tool-card .t-name { font-weight: 600; font-size: 0.9rem; }
+.tool-card .t-desc { font-size: 0.78rem; color: var(--muted); margin: 6px 0 10px; line-height: 1.5; }
+.tool-card .t-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* METRICS */
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.metric-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;
+}
+.metric-card .m-val { font-size: 1.6rem; font-weight: 700; }
+.metric-card .m-lbl { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+.metric-card .m-delta { font-size: 0.73rem; color: var(--green); }
+
+/* SEARCH */
+.search-bar {
+  width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); font-size: 0.85rem; font-family: inherit;
+  margin-bottom: 16px;
+}
+.search-bar:focus { outline: none; border-color: var(--accent); }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 99;
+  display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 24px; width: 90%; max-width: 500px;
+}
+.modal h3 { margin-bottom: 16px; }
+.modal .form-group { margin-bottom: 12px; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .sidebar { width: 60px; min-width: 60px; }
+  .nav-item span:not(.nav-icon) { display: none; }
+  .logo { font-size: 0.8rem; padding: 0 10px 16px; }
+  .kanban { grid-template-columns: 1fr; }
+  .prompt-grid { grid-template-columns: 1fr; }
+  .tools-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="logo">⚡ AI 设计工作台</div>
+  <button class="nav-item active" data-page="prompts"><span class="nav-icon">📋</span><span>Prompt 模板库</span></button>
+  <button class="nav-item" data-page="builder"><span class="nav-icon">🔧</span><span>Prompt 构建器</span></button>
+  <button class="nav-item" data-page="kanban"><span class="nav-icon">📌</span><span>项目看板</span></button>
+  <button class="nav-item" data-page="tools"><span class="nav-icon">🧰</span><span>工具面板</span></button>
+  <button class="nav-item" data-page="metrics"><span class="nav-icon">📊</span><span>数据看板</span></button>
+  <div class="stats-bar">
+    <div class="val" id="totalPrompts">0</div>
+    <div class="lbl">已保存 Prompt</div>
+    <div class="val" style="margin-top:8px" id="totalProjects">0</div>
+    <div class="lbl">进行中项目</div>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+
+  <!-- PAGE 1: Prompt 模板库 -->
+  <section class="page active" id="page-prompts">
+    <div class="page-title">Prompt 模板库</div>
+    <div class="page-desc">分类好的电商设计专用 AI Prompt，点击复制即可使用</div>
+    <input class="search-bar" id="promptSearch" placeholder="🔍 搜索 Prompt 模板...">
+    <div class="tag-row" id="promptTags"></div>
+    <div class="prompt-grid" id="promptGrid"></div>
+  </section>
+
+  <!-- PAGE 2: Prompt 构建器 -->
+  <section class="page" id="page-builder">
+    <div class="page-title">Prompt 构建器</div>
+    <div class="page-desc">填写产品信息，自动生成可直接用于 MJ/SD/DALL·E 的专业电商 Prompt</div>
+    <div class="card">
+      <div class="builder-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>产品名称</label>
+            <input id="bf-product" placeholder="例：无线蓝牙降噪耳机">
+          </div>
+          <div class="form-group">
+            <label>产品品类</label>
+            <select id="bf-category">
+              <option value="">-- 选择品类 --</option>
+              <option>3C数码</option><option>美妆护肤</option><option>服饰鞋包</option>
+              <option>食品饮料</option><option>家居日用</option><option>母婴用品</option>
+              <option>户外运动</option><option>珠宝饰品</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>核心卖点（用逗号分隔 2-3 个）</label>
+            <input id="bf-selling" placeholder="例：超长续航30天, 主动降噪, 轻至4.3g">
+          </div>
+          <div class="form-group">
+            <label>目标平台</label>
+            <select id="bf-platform">
+              <option>天猫/淘宝</option><option>京东</option><option>抖音</option>
+              <option>亚马逊</option><option>拼多多</option><option>独立站/Shopify</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>视觉风格</label>
+            <select id="bf-style">
+              <option>高端质感/产品摄影风</option><option>简约白底/棚拍风</option>
+              <option>生活场景/生活方式</option><option>赛博朋克/科技感</option>
+              <option>国潮/新中式</option><option>莫兰迪/柔和色调</option>
+              <option>奢华/高级感</option><option>清新自然/日系</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>色彩倾向</label>
+            <input id="bf-color" placeholder="例：深空灰+霓虹蓝，或暖调米色">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>画面场景描述（可选）</label>
+            <input id="bf-scene" placeholder="例：都市夜晚通勤场景，背景虚化城市灯光">
+          </div>
+          <div class="form-group">
+            <label>目标模型</label>
+            <select id="bf-model">
+              <option>Midjourney</option><option>Stable Diffusion</option><option>DALL·E 3</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>负面词 / 不希望出现的内容</label>
+            <input id="bf-negative" placeholder="例：no text, no watermarks, no distorted products">
+          </div>
+          <div class="form-group">
+            <label>参考图链接（可选）</label>
+            <input id="bf-reference" placeholder="例：https://www.pinterest.com/pin/xxx">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="generatePrompt()">✨ 生成 Prompt</button>
+          <button class="btn btn-primary" onclick="generateBatchPrompts()">📦 一键生成3组变体</button>
+          <button class="btn" onclick="clearBuilder()">清空</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" id="builderResult" style="display:none">
+      <h3>🎯 生成结果</h3>
+      <div class="result-box" id="builderOutput"></div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn btn-success" onclick="copyBuilderResult()">📋 一键复制</button>
+        <button class="btn" onclick="saveBuilderResult()">💾 保存到模板库</button>
+      </div>
+    </div>
+    <!-- Batch results -->
+    <div id="batchResults"></div>
+  </section>
+
+  <!-- PAGE 3: 项目看板 -->
+  <section class="page" id="page-kanban">
+    <div class="page-title">项目看板</div>
+    <div class="page-desc">追踪每张设计图从需求到交付的完整流程</div>
+    <div style="margin-bottom:14px">
+      <button class="btn btn-primary" onclick="openProjectModal()">+ 新建项目</button>
+    </div>
+    <div class="kanban" id="kanbanBoard"></div>
+  </section>
+
+  <!-- PAGE 4: 工具面板 -->
+  <section class="page" id="page-tools">
+    <div class="page-title">AI 工具面板</div>
+    <div class="page-desc">电商设计师常用 AI 工具速览，含直达链接</div>
+    <div class="tag-row" id="toolTags"></div>
+    <div class="tools-grid" id="toolsGrid"></div>
+  </section>
+
+  <!-- PAGE 5: 数据看板 -->
+  <section class="page" id="page-metrics">
+    <div class="page-title">数据看板</div>
+    <div class="page-desc">追踪你的设计效率提升与 AI 工具使用效果</div>
+    <div class="metrics-grid" id="metricsGrid"></div>
+    <div class="card">
+      <h3>📝 快速记录今日数据</h3>
+      <div class="form-row" style="margin-bottom:12px">
+        <div class="form-group"><label>今日出图数</label><input id="mt-output" type="number" value="0"></div>
+        <div class="form-group"><label>AI辅助出图占比 (%)</label><input id="mt-ai-ratio" type="number" value="0" min="0" max="100"></div>
+        <div class="form-group"><label>AI 用时 (小时)</label><input id="mt-ai-hours" type="number" value="0" step="0.5"></div>
+      </div>
+      <button class="btn btn-primary" onclick="recordMetrics()">📊 记录今日</button>
+      <span style="margin-left:10px;font-size:0.8rem;color:var(--muted)" id="lastRecord"></span>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>📈 最近7天趋势</h3>
+      <div id="trendChart" style="display:flex;gap:12px;align-items:flex-end;height:160px;padding-top:8px"></div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- MODAL: New Project -->
+<div class="modal-overlay" id="projectModal">
+  <div class="modal">
+    <h3>新建项目</h3>
+    <div class="form-group"><label>项目名称</label><input id="modal-title" placeholder="例：618大促主图-耳机"></div>
+    <div class="form-group"><label>品类</label><select id="modal-category"><option>3C数码</option><option>美妆护肤</option><option>服饰鞋包</option><option>食品饮料</option><option>家居日用</option><option>母婴用品</option><option>户外运动</option><option>珠宝饰品</option></select></div>
+    <div class="form-group"><label>平台</label><select id="modal-platform"><option>天猫/淘宝</option><option>京东</option><option>抖音</option><option>亚马逊</option><option>拼多多</option><option>独立站/Shopify</option></select></div>
+    <div class="form-group"><label>截止日期</label><input id="modal-deadline" type="date"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn" onclick="closeProjectModal()">取消</button>
+      <button class="btn btn-primary" onclick="addProject()">创建</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ DATA ============
+const promptTemplates = [
+  { id:1, tag:'主图', title:'白底精修产品主图', model:'Midjourney', text:'commercial product photography of [产品名称], pure white background, studio lighting, softbox, Canon EOS R5 85mm f/1.2, shot from front angle, sharp focus on product details, hyperrealistic, 8K, professional ecommerce photography, product centered, minimal shadow, high key lighting --ar 1:1 --v 6.1' },
+  { id:2, tag:'主图', title:'场景化主图（生活方式风）', model:'Midjourney', text:'lifestyle photography of [产品名称] being used by model, [场景描述], natural sunlight, golden hour, shallow depth of field, authentic moment, candid shot, warm tones, aspirational lifestyle, editorial quality, 35mm film aesthetic, cozy atmosphere --ar 1:1 --v 6.1' },
+  { id:3, tag:'主图', title:'高点击率科技感主图', model:'Midjourney', text:'futuristic product photography of [产品名称], dramatic studio lighting, neon accent rim light, floating particles, dark moody background, cinematic lighting, volumetric light rays, hyperdetailed, 8K, commercial product render, C4D render quality, Octane render style --ar 1:1 --v 6.1' },
+  { id:4, tag:'详情页', title:'产品功能拆解图', model:'Midjourney', text:'exploded view technical illustration of [产品名称], showing internal components, clean isometric angle, labeled parts, blueprint aesthetic, dark background with neon blue lines, technical but elegant, product design render style, transparent shell showing internals --ar 3:4 --v 6.1' },
+  { id:5, tag:'详情页', title:'材质细节特写', model:'Stable Diffusion', text:'extreme macro close-up shot of [产品材质/细节], 5x magnification, texture detail visible, soft diffused lighting, shallow depth of field, luxury product photography, shot on Hasselblad X2D 100C, 120mm macro lens, sharp focus on texture, editorial quality, (no text, no watermarks, no logo:1.3)' },
+  { id:6, tag:'详情页', title:'使用场景叙事图', model:'Midjourney', text:'cinematic scene of [人物] using [产品名称] in [场景], storytelling composition, warm cinematic color grading, anamorphic lens flare, shallow depth of field, natural expressions, high-end commercial photography, editorial fashion style, 8K --ar 3:4 --v 6.1' },
+  { id:7, tag:'Banner', title:'618/双11大促Banner', model:'Midjourney', text:'ecommerce promotional banner for [活动主题], [产品名称] as hero element, festive atmosphere with [品牌色] as accent, floating geometric shapes, dynamic composition, gradient background, CTA space on right side, professional commercial design, 3D render elements, premium brand feel, 20% negative space on right for text --ar 16:9 --v 6.1' },
+  { id:8, tag:'Banner', title:'新品首发倒计时Banner', model:'Midjourney', text:'launch teaser banner for [新品名称], mysterious dark atmosphere, product silhouette with glowing edge light, dramatic spotlight, "COMING SOON" aesthetic, premium tech brand style, black and [品牌色] color scheme, cinematic, high-end, product reveal moment --ar 16:9 --v 6.1' },
+  { id:9, tag:'A+页面', title:'亚马逊A+品牌故事图', model:'Midjourney', text:'clean brand story imagery for Amazon A+ content, [产品名称] shown in elegant minimal setting, warm natural light, uncluttered composition, modern Scandinavian interior, lifestyle context, premium brand aesthetic, story-telling sequence, consistent warm neutral color palette, high-end catalog quality --ar 3:4 --v 6.1' },
+  { id:10, tag:'A+页面', title:'产品对比图表', model:'Midjourney', text:'side-by-side comparison graphic, [产品A] vs [产品B], clean split composition, professional product photography style, neutral grey background, equal lighting on both subjects, informative but visually appealing, infographic style meets photography, white and [品牌色] accent --ar 3:4 --v 6.1' },
+  { id:11, tag:'短视频', title:'抖音商品卡封面', model:'DALL·E 3', text:'vertical product showcase image for short video platform, [产品名称] dramatically lit from above, bold composition designed to stop scroll, high contrast, vibrant colors, eye-catching, Gen Z aesthetic, 15% negative space at bottom for text overlay, vertical 9:16 composition, trendy visual style' },
+  { id:12, tag:'短视频', title:'直播预热海报', model:'Midjourney', text:'livestream promotional poster for [产品名称], energetic atmosphere, [主播风格描述] vibe, bold typography-safe area, hot sale aesthetic, dynamic lighting, social commerce style, red and gold accents, Chinese ecommerce livestream style, consumer excitement, urgency feeling --ar 9:16 --v 6.1' },
+  { id:13, tag:'包装', title:'产品包装效果图', model:'Midjourney', text:'product packaging mockup render, [产品名称] in premium box packaging, front 3/4 angle view, soft studio lighting, luxury unboxing aesthetic, [材质] texture visible, subtle reflection on surface, clean background, packaging design showcase, commercial print quality, C4D product rendering style --ar 1:1 --v 6.1' },
+  { id:14, tag:'包装', title:'场景化开箱图', model:'Midjourney', text:'flat lay unboxing photography of [产品名称] with accessories, overhead shot, natural window light, [场景道具] scattered aesthetically, warm inviting mood, authentic, lifestyle commercial photography, 50mm lens, shallow depth of field, editorial quality, cozy vibes --ar 4:5 --v 6.1' },
+  { id:15, tag:'3D渲染', title:'C4D质感产品渲染', model:'Stable Diffusion', text:'3D product render of [产品名称], C4D and Octane render quality, studio lighting setup, glossy [材质] surface, dramatic shadows, product showcase on minimal pedestal, dark atmospheric background, rim lighting, hyperrealistic material texture, 8K, (no text, no watermark, no logo:1.5), professional product visualization' },
+  { id:16, tag:'3D渲染', title:'功能拆解爆炸图', model:'Stable Diffusion', text:'technical exploded view 3D render of [产品名称], all components floating in isometric perspective, clean separation between parts, C4D render, matte material finish, engineering blueprint aesthetic mixed with modern product render, annotation-friendly, dark background, precise detail, (no text:1.2)' },
+  { id:17, tag:'模特', title:'AI模特棚拍图', model:'Stable Diffusion', text:'fashion ecommerce model photography, [性别/年龄/风格] model wearing/using [产品名称], studio lighting, clean light grey background, standing pose front view, professional fashion photography, natural skin texture, sharp focus on product, catalog style, full body shot, (no distorted face, no extra limbs:1.5)' },
+  { id:18, tag:'模特', title:'AI模特场景图', model:'Stable Diffusion', text:'lifestyle model photography, [性别/年龄] model in [场景] using [产品名称], golden hour natural lighting, candid happy expression, outdoor setting, authentic moment, shallow depth of field, editorial fashion quality, aspirational lifestyle, warm natural color grade, (no distorted face, no extra limbs:1.5)' },
+];
+
+const tools = [
+  { id:1, tag:'图像生成', name:'Midjourney', icon:'🎨', desc:'最强电商场景图/氛围图生成，擅长光影质感和构图。主图、Banner、详情页概念稿首选。', url:'https://www.midjourney.com', linkText:'打开 Discord' },
+  { id:2, tag:'图像生成', name:'Stable Diffusion', icon:'🖼️', desc:'开源可控，擅长产品合成、局部重绘（Inpaint）、模特生成。配合 ControlNet 实现精准产品替换。', url:'https://stability.ai', linkText:'打开 WebUI' },
+  { id:3, tag:'图像生成', name:'DALL·E 3', icon:'✨', desc:'文字理解力最强，快速验证创意方向。内置 ChatGPT Plus，对话式生成迭代效率高。', url:'https://chat.openai.com', linkText:'打开 ChatGPT' },
+  { id:4, tag:'图像生成', name:'即梦 (Jimeng)', icon:'🎬', desc:'字节系 AI 图像/视频生成工具，对中文理解好，适合抖音短视频封面和素材。', url:'https://jimeng.jianying.com', linkText:'打开即梦' },
+  { id:5, tag:'后期处理', name:'Adobe Photoshop AI', icon:'📸', desc:'Generative Fill 智能填充、扩图、替换背景，电商设计后期必备。需 Photoshop Beta 版。', url:'https://www.adobe.com/products/photoshop.html', linkText:'了解详情' },
+  { id:6, tag:'后期处理', name:'Magnific AI', icon:'🔍', desc:'AI 高清放大，可将 MJ/SD 生成的图放大到印刷级分辨率，细节增强效果出色。', url:'https://magnific.ai', linkText:'打开 Magnific' },
+  { id:7, tag:'后期处理', name:'Remove.bg', icon:'✂️', desc:'一键智能抠图，批量处理产品白底图，支持 API 集成到工作流。', url:'https://www.remove.bg', linkText:'打开 Remove.bg' },
+  { id:8, tag:'后期处理', name:'Topaz Photo AI', icon:'🖌️', desc:'AI 降噪+锐化+放大全能工具，老照片修复和产品图质量提升利器。', url:'https://www.topazlabs.com', linkText:'打开 Topaz' },
+  { id:9, tag:'3D工具', name:'Blender + AI', icon:'🧊', desc:'免费开源 3D 软件，社区 AI 插件丰富，产品渲染、场景搭建。', url:'https://www.blender.org', linkText:'打开 Blender' },
+  { id:10, tag:'3D工具', name:'C4D / KeyShot', icon:'💎', desc:'电商3D渲染行业标准，C4D建模+KeyShot快速出图，适合产品级渲染。', url:'https://www.keyshot.com', linkText:'打开 KeyShot' },
+  { id:11, tag:'视频', name:'Runway / Pika', icon:'🎥', desc:'AI 视频生成，商品360°旋转展示、材质动画、动态Banner背景视频。', url:'https://runwayml.com', linkText:'打开 Runway' },
+  { id:12, tag:'视频', name:'剪映 / CapCut', icon:'✏️', desc:'短视频剪辑+AI功能，自动字幕、AI调色、模板化制作，抖音/小红书素材必备。', url:'https://www.capcut.cn', linkText:'打开剪映' },
+  { id:13, tag:'文案', name:'Claude', icon:'🧠', desc:'卖点文案、详情页描述、A+品牌故事撰写，数据报告自动生成。就是你正在用的这个。', url:'https://claude.ai', linkText:'打开 Claude' },
+  { id:14, tag:'文案', name:'ChatGPT', icon:'💬', desc:'多场景文案策划、翻译本地化、创意脑暴，配合 DALL·E 出图+文案一体化。', url:'https://chat.openai.com', linkText:'打开 ChatGPT' },
+  { id:15, tag:'协作', name:'Figma + AI 插件', icon:'🎯', desc:'设计系统管理、组件库、团队协作。AI 插件可实现自动布局、设计稿转代码。', url:'https://www.figma.com', linkText:'打开 Figma' },
+  { id:16, tag:'数据', name:'电商数据看板', icon:'📊', desc:'生意参谋、ACOS/ROAS追踪、竞品监控。配合AI做数据归因分析。', url:'https://sycm.taobao.com', linkText:'打开生意参谋' },
+];
+
+// ============ STATE ============
+let projects = JSON.parse(localStorage.getItem('aiwork_projects') || '[]');
+let savedPrompts = JSON.parse(localStorage.getItem('aiwork_prompts') || '[]');
+let metricsLog = JSON.parse(localStorage.getItem('aiwork_metrics') || '[]');
+let activePromptTag = '';
+let activeToolTag = '';
+
+// ============ NAVIGATION ============
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('page-' + btn.dataset.page).classList.add('active');
+    if (btn.dataset.page === 'metrics') renderMetrics();
+    if (btn.dataset.page === 'kanban') renderKanban();
+  });
+});
+
+// ============ TOAST ============
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ============ PAGE 1: PROMPT LIBRARY ============
+function renderPromptTags() {
+  const tags = [...new Set(promptTemplates.map(p => p.tag))];
+  const container = document.getElementById('promptTags');
+  container.innerHTML = '<button class="tag' + (!activePromptTag ? ' active' : '') + '" onclick="filterPrompts(\'\')">全部</button>';
+  tags.forEach(tag => {
+    container.innerHTML += '<button class="tag' + (activePromptTag === tag ? ' active' : '') + '" onclick="filterPrompts(\'' + tag + '\')">' + tag + '</button>';
+  });
+}
+
+function filterPrompts(tag) {
+  activePromptTag = tag;
+  renderPromptTags();
+  renderPromptGrid();
+}
+
+function renderPromptGrid() {
+  const search = (document.getElementById('promptSearch')?.value || '').toLowerCase();
+  let list = [...promptTemplates, ...savedPrompts];
+  if (activePromptTag) list = list.filter(p => p.tag === activePromptTag);
+  if (search) list = list.filter(p => p.title.toLowerCase().includes(search) || p.text.toLowerCase().includes(search));
+
+  const grid = document.getElementById('promptGrid');
+  grid.innerHTML = list.map(p => `
+    <div class="prompt-card">
+      <div class="ptype">${p.tag} · ${p.model || '通用'}</div>
+      <div class="ptitle">${p.title}</div>
+      <div class="ppreview">${p.text}</div>
+      <div class="pactions">
+        <button class="btn btn-success btn-sm" onclick="copyPrompt('${escapeHtml(p.text)}')">📋 复制</button>
+        <button class="btn btn-sm" onclick="editPromptText('${escapeHtml(p.text)}')">✏️ 自定义后复制</button>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('totalPrompts').textContent = list.length;
+}
+
+function escapeHtml(str) {
+  return str.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function copyPrompt(text) {
+  navigator.clipboard.writeText(text).then(() => showToast('✅ Prompt 已复制到剪贴板！'));
+}
+
+function editPromptText(text) {
+  const edited = prompt('编辑 Prompt 后复制：', text);
+  if (edited) navigator.clipboard.writeText(edited).then(() => showToast('✅ 自定义 Prompt 已复制！'));
+}
+
+document.getElementById('promptSearch').addEventListener('input', renderPromptGrid);
+
+// ============ PAGE 2: PROMPT BUILDER ============
+function generatePrompt() {
+  const product = document.getElementById('bf-product').value || '[产品名称]';
+  const category = document.getElementById('bf-category').value || '';
+  const selling = document.getElementById('bf-selling').value || '';
+  const platform = document.getElementById('bf-platform').value || '天猫/淘宝';
+  const style = document.getElementById('bf-style').value || '';
+  const color = document.getElementById('bf-color').value || '';
+  const scene = document.getElementById('bf-scene').value || '';
+  const model = document.getElementById('bf-model').value || 'Midjourney';
+  const negative = document.getElementById('bf-negative').value || '';
+  const ref = document.getElementById('bf-reference').value || '';
+
+  const sellingList = selling ? selling.split(',').map(s => s.trim()).filter(s => s) : [];
+
+  let prompt = '';
+  const platAspect = platform === '抖音' ? '--ar 9:16' : platform === '亚马逊' ? '--ar 1:1' : '--ar 1:1';
+
+  if (model === 'Midjourney') {
+    prompt = `commercial ecommerce product photography of ${product}`;
+    if (category) prompt += `, ${category} product`;
+    if (sellingList.length) prompt += `, featuring ${sellingList.join(', ')}`;
+    prompt += `, ${style}`;
+    if (color) prompt += `, ${color} color scheme`;
+    if (scene) prompt += `, ${scene}`;
+    prompt += `, professional studio lighting, sharp focus, hyperrealistic, 8K, high-end product photography`;
+    if (ref) prompt += ` --cref ${ref}`;
+    prompt += ` ${platAspect} --v 6.1 --style raw`;
+    prompt += ` --no text,watermark,logo,distorted,bad quality,blurry,ugly`;
+  } else if (model === 'Stable Diffusion') {
+    prompt = `commercial product photo of ${product}`;
+    if (category) prompt += `, ${category}`;
+    if (sellingList.length) prompt += `, (${sellingList.join(':1.1), (')}:1.1)`;
+    prompt += `, ${style}`;
+    if (color) prompt += `, ${color} color palette`;
+    if (scene) prompt += `, ${scene}`;
+    prompt += `, studio lighting, 8K, sharp focus, professional ecommerce photography, masterpiece, best quality`;
+    prompt += `\nNegative prompt: ${negative || 'text, watermark, logo, ugly, deformed, blurry, low quality, bad anatomy, extra fingers'}`;
+    const platRes = platform === '抖音' ? '576x1024' : platform === '亚马逊' ? '1024x1024' : '1024x1024';
+    prompt += `\nSteps: 30, Sampler: DPM++ 2M Karras, CFG scale: 7, Size: ${platRes}`;
+  } else { // DALL·E 3
+    prompt = `A commercial ecommerce product photograph of ${product}`;
+    if (category) prompt += ` (${category} product)`;
+    if (sellingList.length) prompt += ` that highlights ${sellingList.join(' and ')}`;
+    prompt += `. ${style}. ${color ? 'Color palette: ' + color + '.' : ''} ${scene ? 'Scene: ' + scene + '.' : ''}`;
+    prompt += ` Professional studio lighting, sharp focus, high resolution. Suitable for ${platform} product listing.`;
+    prompt += ` ${negative ? 'Do NOT include: ' + negative + '.' : 'No text, no watermarks, no logos.'}`;
+  }
+
+  document.getElementById('builderOutput').textContent = prompt;
+  document.getElementById('builderResult').style.display = 'block';
+  document.getElementById('batchResults').innerHTML = '';
+  document.getElementById('builderResult').scrollIntoView({ behavior: 'smooth' });
+}
+
+function generateBatchPrompts() {
+  const styleList = ['高端质感/产品摄影风', '生活场景/生活方式', '简约白底/棚拍风'];
+  const model = document.getElementById('bf-model').value || 'Midjourney';
+  const product = document.getElementById('bf-product').value || '[产品名称]';
+
+  let html = '';
+  styleList.forEach((style, i) => {
+    document.getElementById('bf-style').value = style;
+    generatePromptSilent(i);
+    const prompt = document.getElementById('builderOutput').textContent;
+    html += `<div class="card" style="margin-top:12px">
+      <h3>🎯 变体 ${i+1}：${style}</h3>
+      <div class="result-box">${prompt}</div>
+      <div style="margin-top:8px">
+        <button class="btn btn-success btn-sm" onclick="copyPrompt('${escapeHtml(prompt)}')">📋 复制此版本</button>
+      </div>
+    </div>`;
+  });
+  document.getElementById('batchResults').innerHTML = html;
+  document.getElementById('builderResult').style.display = 'block';
+  document.getElementById('builderResult').scrollIntoView({ behavior: 'smooth' });
+}
+
+function generatePromptSilent(idx) {
+  // internal use
+  generatePrompt();
+}
+
+function copyBuilderResult() {
+  const text = document.getElementById('builderOutput').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('✅ Prompt 已复制到剪贴板！'));
+}
+
+function saveBuilderResult() {
+  const text = document.getElementById('builderOutput').textContent;
+  const product = document.getElementById('bf-product').value || '自定义产品';
+  const model = document.getElementById('bf-model').value || '通用';
+  savedPrompts.push({ id: Date.now(), tag: '自定义', title: product + ' - 自定义Prompt', model, text });
+  localStorage.setItem('aiwork_prompts', JSON.stringify(savedPrompts));
+  renderPromptGrid();
+  showToast('💾 已保存到模板库！');
+}
+
+function clearBuilder() {
+  ['bf-product','bf-selling','bf-color','bf-scene','bf-negative','bf-reference'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('bf-category').selectedIndex = 0;
+  document.getElementById('bf-style').selectedIndex = 0;
+  document.getElementById('bf-model').selectedIndex = 0;
+  document.getElementById('bf-platform').selectedIndex = 0;
+  document.getElementById('builderResult').style.display = 'none';
+  document.getElementById('batchResults').innerHTML = '';
+}
+
+// ============ PAGE 3: KANBAN ============
+function renderKanban() {
+  const cols = [
+    { status: 'todo', title: '📥 待开始', color: '#94a3b8' },
+    { status: 'ai', title: '🤖 AI生成中', color: '#8b5cf6' },
+    { status: 'editing', title: '👤 精修中', color: '#f59e0b' },
+    { status: 'done', title: '✅ 已完成', color: '#22c55e' },
+  ];
+
+  const board = document.getElementById('kanbanBoard');
+  board.innerHTML = cols.map(col => {
+    const items = projects.filter(p => p.status === col.status);
+    return `<div class="kanban-col">
+      <h4>${col.title} <span style="font-weight:400;font-size:0.75rem">(${items.length})</span></h4>
+      ${items.map(p => `
+        <div class="kanban-item">
+          <div class="ki-title">${p.title}</div>
+          <div class="ki-meta">
+            <span>${p.platform}</span>
+            <span>${p.deadline || '无截止'}</span>
+          </div>
+          <div class="ki-actions">
+            <select class="ki-status" onchange="moveProject(${p.id}, this.value)">
+              ${cols.map(c => `<option value="${c.status}" ${c.status === p.status ? 'selected' : ''}>${c.title}</option>`).join('')}
+            </select>
+            <button class="btn btn-sm" onclick="deleteProject(${p.id})" style="color:var(--red)">🗑️</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+  }).join('');
+  document.getElementById('totalProjects').textContent = projects.filter(p => p.status !== 'done').length;
+}
+
+function openProjectModal() { document.getElementById('projectModal').classList.add('show'); }
+function closeProjectModal() { document.getElementById('projectModal').classList.remove('show'); }
+
+function addProject() {
+  const title = document.getElementById('modal-title').value.trim();
+  if (!title) return showToast('请输入项目名称');
+  projects.push({
+    id: Date.now(),
+    title,
+    platform: document.getElementById('modal-platform').value,
+    category: document.getElementById('modal-category').value,
+    deadline: document.getElementById('modal-deadline').value,
+    status: 'todo',
+    createdAt: new Date().toISOString()
+  });
+  localStorage.setItem('aiwork_projects', JSON.stringify(projects));
+  document.getElementById('modal-title').value = '';
+  closeProjectModal();
+  renderKanban();
+  showToast('✅ 项目已创建！');
+}
+
+function moveProject(id, newStatus) {
+  const p = projects.find(p => p.id === id);
+  if (p) { p.status = newStatus; localStorage.setItem('aiwork_projects', JSON.stringify(projects)); renderKanban(); }
+}
+
+function deleteProject(id) {
+  if (!confirm('确定删除此项目？')) return;
+  projects = projects.filter(p => p.id !== id);
+  localStorage.setItem('aiwork_projects', JSON.stringify(projects));
+  renderKanban();
+  showToast('🗑️ 项目已删除');
+}
+
+// ============ PAGE 4: TOOLS ============
+function renderToolTags() {
+  const tags = [...new Set(tools.map(t => t.tag))];
+  const container = document.getElementById('toolTags');
+  container.innerHTML = '<button class="tag' + (!activeToolTag ? ' active' : '') + '" onclick="filterTools(\'\')">全部</button>';
+  tags.forEach(tag => {
+    container.innerHTML += '<button class="tag' + (activeToolTag === tag ? ' active' : '') + '" onclick="filterTools(\'' + tag + '\')">' + tag + '</button>';
+  });
+}
+
+function filterTools(tag) {
+  activeToolTag = tag;
+  renderToolTags();
+  renderToolsGrid();
+}
+
+function renderToolsGrid() {
+  const list = activeToolTag ? tools.filter(t => t.tag === activeToolTag) : tools;
+  document.getElementById('toolsGrid').innerHTML = list.map(t => `
+    <div class="tool-card">
+      <div class="t-icon">${t.icon}</div>
+      <div class="t-name">${t.name}</div>
+      <div class="t-tags"><span class="tag" style="font-size:0.68rem;padding:2px 8px">${t.tag}</span></div>
+      <div class="t-desc">${t.desc}</div>
+      <a href="${t.url}" target="_blank" class="btn btn-primary btn-sm">${t.linkText || '打开'} ↗</a>
+    </div>
+  `).join('');
+}
+
+// ============ PAGE 5: METRICS ============
+function renderMetrics() {
+  const today = new Date().toISOString().split('T')[0];
+  const last7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toISOString().split('T')[0];
+    const entry = metricsLog.find(m => m.date === key) || { date: key, output: 0, aiRatio: 0, aiHours: 0 };
+    last7.push(entry);
+  }
+  const todayEntry = metricsLog.find(m => m.date === today) || { output: 0, aiRatio: 0, aiHours: 0 };
+  const totalOutput = last7.reduce((s, d) => s + d.output, 0);
+  const avgAiRatio = last7.length ? Math.round(last7.reduce((s, d) => s + d.aiRatio, 0) / last7.length) : 0;
+  const totalAiHours = last7.reduce((s, d) => s + d.aiHours, 0);
+
+  const hoursSaved = totalAiHours * 2.5; // AI hours * estimated speed multiplier
+  const costSaved = totalOutput * 350; // rough saving per AI-assisted image
+
+  document.getElementById('metricsGrid').innerHTML = `
+    <div class="metric-card"><div class="m-val" style="color:#6366f1">${totalOutput}</div><div class="m-lbl">7天总出图量</div></div>
+    <div class="metric-card"><div class="m-val" style="color:#22c55e">${avgAiRatio}%</div><div class="m-lbl">AI辅助占比</div></div>
+    <div class="metric-card"><div class="m-val" style="color:#f59e0b">${hoursSaved.toFixed(1)}h</div><div class="m-lbl">预估节省时数</div><div class="m-delta">≈ ${totalAiHours}h × 2.5倍速</div></div>
+    <div class="metric-card"><div class="m-val" style="color:#a855f7">¥${costSaved.toLocaleString()}</div><div class="m-lbl">预估节省成本</div><div class="m-delta">按 ¥350/图估算</div></div>
+    <div class="metric-card"><div class="m-val">${todayEntry.output}</div><div class="m-lbl">今日出图</div></div>
+    <div class="metric-card"><div class="m-val">${todayEntry.aiRatio}%</div><div class="m-lbl">今日AI占比</div></div>
+  `;
+
+  // Trend chart
+  const maxVal = Math.max(...last7.map(d => d.output), 1);
+  document.getElementById('trendChart').innerHTML = last7.map(d => {
+    const h = (d.output / maxVal * 140);
+    const dayLabel = d.date.slice(5);
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <span style="font-size:0.75rem;color:var(--muted)">${d.output}</span>
+      <div style="width:100%;background:linear-gradient(180deg, var(--accent), var(--accent2));border-radius:6px 6px 0 0;height:${h}px;min-height:4px"></div>
+      <span style="font-size:0.68rem;color:var(--muted)">${dayLabel}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('lastRecord').textContent = todayEntry.output > 0 ? `上次记录: ${today} (${todayEntry.output} 张图)` : '';
+}
+
+function recordMetrics() {
+  const today = new Date().toISOString().split('T')[0];
+  const entry = {
+    date: today,
+    output: parseInt(document.getElementById('mt-output').value) || 0,
+    aiRatio: parseInt(document.getElementById('mt-ai-ratio').value) || 0,
+    aiHours: parseFloat(document.getElementById('mt-ai-hours').value) || 0
+  };
+  const idx = metricsLog.findIndex(m => m.date === today);
+  if (idx >= 0) metricsLog[idx] = entry; else metricsLog.push(entry);
+  localStorage.setItem('aiwork_metrics', JSON.stringify(metricsLog));
+  renderMetrics();
+  showToast('📊 数据已记录！');
+}
+
+// ============ INIT ============
+function init() {
+  renderPromptTags();
+  renderPromptGrid();
+  renderToolTags();
+  renderToolsGrid();
+  renderKanban();
+  renderMetrics();
+}
+init();
+</script>
+</body>
+</html>
